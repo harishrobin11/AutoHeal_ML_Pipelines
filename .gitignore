@@ -1,0 +1,29 @@
+# Environments & Virtual Envs
+venv/
+.venv/
+env/
+ENV/
+*.venv
+
+# Python & Cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+
+# Databases & Local Data
+*.db
+*.sqlite
+autoheal.db
+test_autoheal.db
+
+# Environment Variables
+.env
+
+# IDE & OS Files
+.DS_Store
+.vscode/
+.idea/
