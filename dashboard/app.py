@@ -745,23 +745,88 @@ with tab3:
 
     if "last_remediation" in st.session_state:
         res = st.session_state["last_remediation"]
-        st.markdown('<hr class="divider">', unsafe_allow_html=True)
-        st.markdown('<div class="sec-header"><div class="sec-title">📋 Execution Trace</div><div class="badge b-emerald">COMPLETED</div></div>', unsafe_allow_html=True)
+        # Only keep the final COMPLETED entry for each unique step name
+        seen, completed_steps = set(), []
+        for step in reversed(res.get("execution_trace", [])):
+            name = step["step"].split("·")[0].strip().split(" ")[0]
+            if step["status"] == "COMPLETED" and name not in seen:
+                seen.add(name)
+                completed_steps.insert(0, step)
 
-        for step in res.get("execution_trace", []):
-            icon = "✅" if step["status"] == "COMPLETED" else "⏳"
-            with st.expander(f"{icon}  {step['step']}  ·  {step['status']}", expanded=False):
+        st.markdown('<hr class="divider">', unsafe_allow_html=True)
+
+        # Header row
+        st.markdown(f"""
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px">
+            <div class="sec-title">📋 Agent Execution Trace</div>
+            <div class="badge b-emerald">● {len(completed_steps)} Steps Completed</div>
+            <div class="badge b-cyan">Pipeline OK</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        STEP_COLORS = {
+            "INVESTIGATION": ("🔍", "#6366F1", "rgba(99,102,241,0.1)", "rgba(99,102,241,0.25)"),
+            "DEVELOPMENT":   ("🛠️", "#00F0FF", "rgba(0,240,255,0.08)", "rgba(0,240,255,0.2)"),
+            "VALIDATION":    ("✅", "#10B981", "rgba(16,185,129,0.08)", "rgba(16,185,129,0.2)"),
+        }
+
+        for i, step in enumerate(completed_steps):
+            step_key = next((k for k in STEP_COLORS if k in step["step"].upper()), "INVESTIGATION")
+            icon, accent, bg, border = STEP_COLORS[step_key]
+            step_name = step["step"]
+            output    = step.get("output", {})
+            is_last   = i == len(completed_steps) - 1
+
+            # Build a one-line summary from the output dict
+            summary_parts = []
+            for k, v in list(output.items())[:3]:
+                summary_parts.append(f'<span style="color:#64748B">{k}:</span> <span style="color:#94A3B8">{str(v)[:40]}</span>')
+            summary_html = " &nbsp;·&nbsp; ".join(summary_parts) if summary_parts else "No output data"
+
+            st.markdown(f"""
+            <div style="display:flex;gap:0;margin-bottom:{'4' if not is_last else '0'}px">
+                <!-- Step line -->
+                <div style="display:flex;flex-direction:column;align-items:center;margin-right:16px;flex-shrink:0">
+                    <div style="width:38px;height:38px;border-radius:10px;background:{bg};border:1px solid {border};
+                                display:flex;align-items:center;justify-content:center;font-size:1.1rem;
+                                box-shadow:0 0 16px {bg}">
+                        {icon}
+                    </div>
+                    {'<div style="width:2px;flex:1;background:rgba(255,255,255,0.06);margin:4px 0;min-height:24px"></div>' if not is_last else ''}
+                </div>
+                <!-- Card -->
+                <div style="flex:1;background:rgba(13,20,35,0.6);border:1px solid {border};border-radius:12px;
+                            padding:14px 18px;margin-bottom:8px;position:relative;overflow:hidden">
+                    <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,{accent}44,{accent}22,transparent)"></div>
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                        <div style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;font-weight:700;
+                                    color:{accent};text-transform:uppercase;letter-spacing:0.08em">
+                            Step {i+1:02d} · {step_key}
+                        </div>
+                        <div class="badge" style="background:{bg};border:1px solid {border};color:{accent};font-size:0.65rem">
+                            ● COMPLETED
+                        </div>
+                    </div>
+                    <div style="font-size:0.82rem;font-weight:600;color:#CBD5E1;margin-bottom:6px">{step_name}</div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:0.72rem;color:#475569;line-height:1.6">
+                        {summary_html}
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            with st.expander(f"  View full output — {step_key}", expanded=False):
                 st.markdown(f"""
                 <div class="terminal-card">
                     <div class="terminal-header">
                         <div class="t-dot" style="background:#F43F5E"></div>
                         <div class="t-dot" style="background:#F59E0B"></div>
                         <div class="t-dot" style="background:#10B981"></div>
-                        <span style="font-family:'JetBrains Mono',monospace;font-size:0.73rem;color:#475569;margin-left:8px">output.json</span>
+                        <span style="font-family:'JetBrains Mono',monospace;font-size:0.72rem;color:#475569;margin-left:8px">{step_key.lower()}_output.json</span>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
-                st.json(step.get("output", {}))
+                st.json(output)
 
 # ───────────────────────────────────────────────────────────────────
 # TAB 4 — GIT DIFFS & PR AUTOMATION
