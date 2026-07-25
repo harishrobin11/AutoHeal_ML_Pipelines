@@ -12,6 +12,13 @@ returns a realistic-looking result dict but does NOT make a live API call.
 """
 import os
 import uuid
+
+# Always load .env from project root on import
+try:
+    from dotenv import load_dotenv
+    load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "../../.env"))
+except ImportError:
+    pass
 import textwrap
 from typing import Dict, Any
 
@@ -103,7 +110,9 @@ class GitHubPRAutomator:
         patch_info = remediation_result.get("patch_solution", {})
 
         try:
-            g    = Github(GitHubPRAutomator.TOKEN)
+            from github import Auth
+            auth = Auth.Token(GitHubPRAutomator.TOKEN)
+            g    = Github(auth=auth)
             repo = g.get_repo(GitHubPRAutomator.REPO_NAME)
 
             # Get default branch SHA
