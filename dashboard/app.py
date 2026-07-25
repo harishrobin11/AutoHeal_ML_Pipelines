@@ -4,6 +4,7 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 import json
+import os
 import time
 
 from src.telemetry.generator import TelemetryGenerator
@@ -18,740 +19,833 @@ from src.backend.pr_automator import GitHubPRAutomator
 st.set_page_config(
     page_title="AutoHeal-ML | Autonomous Self-Healing Platform",
     page_icon="⚡",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
+# ═══════════════════════════════════════════════════════════════════
+#  DESIGN SYSTEM — Cyberpunk Deep Glassmorphism
+# ═══════════════════════════════════════════════════════════════════
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
-    /* ─── GLOBAL RESET ─── */
-    html, body, [class*="css"] {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
-        background-color: #030712 !important;
-    }
-    code, pre, .stCode { font-family: 'JetBrains Mono', monospace !important; }
+/* ── TOKENS ── */
+:root {
+    --bg:          #080B10;
+    --bg2:         #0D1117;
+    --glass:       rgba(13, 20, 35, 0.7);
+    --glass2:      rgba(255,255,255,0.03);
+    --border:      rgba(255,255,255,0.07);
+    --border-glow: rgba(0,240,255,0.2);
+    --cyan:        #00F0FF;
+    --indigo:      #6366F1;
+    --violet:      #8B5CF6;
+    --emerald:     #10B981;
+    --amber:       #F59E0B;
+    --rose:        #F43F5E;
+    --slate:       #94A3B8;
+    --slate2:      #475569;
+    --text:        #E2E8F0;
+    --text2:       #CBD5E1;
+    --mono:        'JetBrains Mono', monospace;
+    --sans:        'Plus Jakarta Sans', system-ui, sans-serif;
+}
 
-    /* ─── PAGE LAYOUT ─── */
-    .block-container { padding: 0 2rem 4rem 2rem !important; max-width: 100% !important; }
-    header[data-testid="stHeader"] { background: rgba(3,7,18,0.95) !important; backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,0.04); }
+/* ── BASE ── */
+html, body, [class*="css"] {
+    font-family: var(--sans) !important;
+    background-color: var(--bg) !important;
+    color: var(--text) !important;
+}
+code, pre, .stCode { font-family: var(--mono) !important; }
+.block-container { padding: 0 1.5rem 4rem !important; max-width: 100% !important; }
 
-    /* ─── ANIMATED HERO BANNER ─── */
-    .hero-wrap {
-        position: relative;
-        background: linear-gradient(135deg, #0f0c29, #1a1a3e, #0f0c29);
-        border-radius: 20px;
-        padding: 40px 44px;
-        margin: 20px 0 28px 0;
-        overflow: hidden;
-        border: 1px solid rgba(139, 92, 246, 0.25);
-        box-shadow: 0 0 80px -20px rgba(139, 92, 246, 0.3), 0 40px 60px -20px rgba(0,0,0,0.6);
-    }
-    .hero-wrap::before {
-        content: '';
-        position: absolute; inset: 0;
-        background:
-            radial-gradient(ellipse 60% 60% at 10% 50%, rgba(99,102,241,0.12) 0%, transparent 65%),
-            radial-gradient(ellipse 50% 70% at 90% 20%, rgba(168,85,247,0.12) 0%, transparent 65%),
-            radial-gradient(ellipse 40% 40% at 50% 100%, rgba(6,182,212,0.07) 0%, transparent 65%);
-        pointer-events: none;
-    }
-    .hero-wrap::after {
-        content: '';
-        position: absolute; top: 0; left: 0; right: 0; height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(139,92,246,0.6), rgba(6,182,212,0.6), transparent);
-    }
-    .hero-pill {
-        display: inline-flex; align-items: center; gap: 8px;
-        background: rgba(139,92,246,0.12);
-        border: 1px solid rgba(139,92,246,0.35);
-        border-radius: 100px;
-        padding: 6px 16px 6px 10px;
-        font-size: 0.78rem; font-weight: 600;
-        color: #a78bfa;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
-        margin-bottom: 18px;
-    }
-    .hero-dot {
-        width: 7px; height: 7px; border-radius: 50%;
-        background: #a78bfa;
-        box-shadow: 0 0 8px #a78bfa;
-        animation: pulse 2s ease-in-out infinite;
-    }
-    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.85)} }
-    .hero-title {
-        font-family: 'Space Grotesk', sans-serif;
-        font-size: 2.8rem; font-weight: 700; line-height: 1.1;
-        letter-spacing: -0.03em;
-        background: linear-gradient(135deg, #e0e7ff 0%, #c4b5fd 35%, #38bdf8 70%, #67e8f9 100%);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        margin: 0 0 12px 0;
-    }
-    .hero-sub {
-        font-size: 1.05rem; font-weight: 400; color: #64748b; line-height: 1.6;
-        max-width: 680px;
-    }
-    .hero-sub span { color: #94a3b8; font-weight: 500; }
-    .hero-tags { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
-    .hero-tag {
-        display: inline-flex; align-items: center; gap: 6px;
-        background: rgba(255,255,255,0.04);
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 8px;
-        padding: 5px 12px;
-        font-size: 0.78rem; font-weight: 500; color: #94a3b8;
-    }
-    .hero-tag-icon { font-size: 0.85rem; }
-    .hero-glow-orb {
-        position: absolute; right: 60px; top: 50%; transform: translateY(-50%);
-        width: 180px; height: 180px; border-radius: 50%;
-        background: radial-gradient(circle, rgba(139,92,246,0.18) 0%, transparent 70%);
-        border: 1px solid rgba(139,92,246,0.15);
-        animation: orb-float 5s ease-in-out infinite;
-    }
-    .hero-glow-orb::after {
-        content: '⚡';
-        position: absolute; inset: 0;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 4rem;
-        animation: orb-float 5s ease-in-out infinite reverse;
-    }
-    @keyframes orb-float { 0%,100%{transform:translateY(-50%) scale(1)} 50%{transform:translateY(-56%) scale(1.05)} }
+/* scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg2); }
+::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.4); border-radius: 10px; }
 
-    /* ─── METRIC CARDS ─── */
-    .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
-    .kpi-card {
-        background: linear-gradient(145deg, rgba(15,20,40,0.9), rgba(10,15,30,0.95));
-        border: 1px solid rgba(255,255,255,0.07);
-        border-radius: 16px;
-        padding: 20px 22px;
-        position: relative;
-        overflow: hidden;
-        transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
-        cursor: default;
-    }
-    .kpi-card:hover {
-        transform: translateY(-4px);
-        border-color: rgba(139,92,246,0.4);
-        box-shadow: 0 20px 40px -10px rgba(139,92,246,0.2), 0 0 0 1px rgba(139,92,246,0.1);
-    }
-    .kpi-card::before {
-        content: ''; position: absolute;
-        top: 0; left: 0; right: 0; height: 2px;
-        border-radius: 16px 16px 0 0;
-    }
-    .kpi-card.blue::before { background: linear-gradient(90deg, #3b82f6, #38bdf8); }
-    .kpi-card.rose::before { background: linear-gradient(90deg, #f43f5e, #fb7185); }
-    .kpi-card.violet::before { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
-    .kpi-card.amber::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
-    .kpi-icon {
-        width: 40px; height: 40px; border-radius: 10px;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 1.2rem; margin-bottom: 14px;
-    }
-    .kpi-icon.blue { background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.2); }
-    .kpi-icon.rose { background: rgba(244,63,94,0.12); border: 1px solid rgba(244,63,94,0.2); }
-    .kpi-icon.violet { background: rgba(139,92,246,0.12); border: 1px solid rgba(139,92,246,0.2); }
-    .kpi-icon.amber { background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.2); }
-    .kpi-label { font-size: 0.78rem; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
-    .kpi-value { font-family: 'Space Grotesk', monospace; font-size: 2.1rem; font-weight: 700; line-height: 1; color: #f1f5f9; }
-    .kpi-sub { font-size: 0.78rem; font-weight: 500; margin-top: 6px; }
-    .kpi-sub.up { color: #34d399; }
-    .kpi-sub.down { color: #f43f5e; }
-    .kpi-sub.neutral { color: #94a3b8; }
+/* ── HEADER ── */
+header[data-testid="stHeader"] {
+    background: rgba(8,11,16,0.9) !important;
+    backdrop-filter: blur(20px) !important;
+    border-bottom: 1px solid var(--border) !important;
+}
 
-    /* ─── SECTION CARDS ─── */
-    .section-card {
-        background: rgba(10, 15, 30, 0.7);
-        border: 1px solid rgba(255,255,255,0.07);
-        border-radius: 16px;
-        padding: 24px 26px;
-        margin-bottom: 20px;
-        backdrop-filter: blur(10px);
-    }
-    .section-title {
-        font-family: 'Space Grotesk', sans-serif;
-        font-size: 1.1rem; font-weight: 600; color: #e2e8f0;
-        margin-bottom: 4px; display: flex; align-items: center; gap: 10px;
-    }
-    .section-desc { font-size: 0.85rem; color: #475569; margin-bottom: 20px; }
+/* ── SIDEBAR ── */
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #080B10 0%, #0A0E18 100%) !important;
+    border-right: 1px solid var(--border) !important;
+    padding-top: 0 !important;
+}
+section[data-testid="stSidebar"] > div { padding-top: 0 !important; }
+.sidebar-logo {
+    background: linear-gradient(135deg, rgba(0,240,255,0.07), rgba(99,102,241,0.07));
+    border-bottom: 1px solid var(--border);
+    padding: 20px 20px 16px;
+    margin: 0 -1rem 20px;
+    display: flex; align-items: center; gap: 12px;
+}
+.sidebar-logo-icon {
+    width: 38px; height: 38px; border-radius: 10px;
+    background: linear-gradient(135deg, #00F0FF22, #6366F122);
+    border: 1px solid rgba(0,240,255,0.25);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem;
+    box-shadow: 0 0 20px rgba(0,240,255,0.1);
+}
+.sidebar-logo-text { line-height: 1.2; }
+.sidebar-logo-name {
+    font-size: 0.92rem; font-weight: 800; letter-spacing: -0.01em;
+    background: linear-gradient(90deg, #00F0FF, #6366F1);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.sidebar-logo-sub { font-size: 0.68rem; font-weight: 500; color: var(--slate2); text-transform: uppercase; letter-spacing: 0.07em; }
+.sidebar-section { font-size: 0.7rem; font-weight: 700; color: var(--slate2); text-transform: uppercase; letter-spacing: 0.1em; margin: 16px 0 8px; }
+.engine-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px; border-radius: 8px;
+    background: var(--glass2); border: 1px solid var(--border);
+    margin-bottom: 5px;
+}
+.engine-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--emerald);
+    box-shadow: 0 0 8px var(--emerald);
+    flex-shrink: 0;
+    animation: glow-pulse 2.5s ease-in-out infinite;
+}
+@keyframes glow-pulse { 0%,100%{opacity:1;box-shadow:0 0 6px #10B981} 50%{opacity:0.5;box-shadow:0 0 12px #10B981} }
+.engine-name { font-size: 0.78rem; font-weight: 600; color: var(--text2); }
+.engine-desc { font-size: 0.68rem; color: var(--slate2); }
 
-    /* ─── STATUS BADGES ─── */
-    .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; }
-    .badge-success { background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.25); color: #34d399; }
-    .badge-error   { background: rgba(244,63,94,0.1);  border: 1px solid rgba(244,63,94,0.25);  color: #f43f5e; }
-    .badge-warning { background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.25); color: #fbbf24; }
-    .badge-info    { background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.25); color: #38bdf8; }
-    .badge-violet  { background: rgba(167,139,250,0.1); border: 1px solid rgba(167,139,250,0.25); color: #a78bfa; }
+/* ── BUTTONS ── */
+.stButton > button {
+    background: linear-gradient(135deg, #00D4E8 0%, #6366F1 100%) !important;
+    color: #fff !important; font-weight: 700 !important;
+    font-size: 0.85rem !important; letter-spacing: 0.02em !important;
+    border: none !important; border-radius: 10px !important;
+    padding: 10px 22px !important;
+    box-shadow: 0 0 20px rgba(0,240,255,0.2), 0 4px 15px rgba(99,102,241,0.3) !important;
+    transition: all 0.2s ease !important;
+    font-family: var(--sans) !important;
+}
+.stButton > button:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 0 35px rgba(0,240,255,0.35), 0 8px 25px rgba(99,102,241,0.4) !important;
+}
+.stButton > button:active { transform: translateY(0) !important; }
 
-    /* ─── AGENT PIPELINE TRACE ─── */
-    .agent-step {
-        background: linear-gradient(135deg, rgba(15,23,42,0.8), rgba(10,15,30,0.9));
-        border: 1px solid rgba(139,92,246,0.2);
-        border-left: 3px solid #8b5cf6;
-        border-radius: 0 12px 12px 0;
-        padding: 16px 20px;
-        margin-bottom: 12px;
-        position: relative;
-    }
-    .agent-step-header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
-    .agent-step-name { font-weight: 700; color: #a78bfa; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.04em; }
-    .agent-step-status { font-size: 0.75rem; font-weight: 600; color: #34d399; }
+/* ── SLIDERS ── */
+.stSlider > div > div > div > div { background: var(--cyan) !important; }
+.stSlider > div > div > div { background: rgba(255,255,255,0.08) !important; border-radius: 10px !important; }
+.stSlider [data-testid="stThumbValue"] { font-family: var(--mono) !important; font-size: 0.75rem !important; color: var(--cyan) !important; }
 
-    /* ─── TABS ─── */
-    .stTabs [data-baseweb="tab-list"] {
-        background: rgba(10,15,30,0.8);
-        border: 1px solid rgba(255,255,255,0.06);
-        border-radius: 14px;
-        padding: 6px;
-        gap: 4px;
-        backdrop-filter: blur(10px);
-        margin-bottom: 24px;
-    }
-    .stTabs [data-baseweb="tab"] {
-        border-radius: 10px;
-        padding: 10px 22px;
-        color: #475569;
-        font-weight: 600;
-        font-size: 0.9rem;
-        border: none !important;
-        transition: all 0.2s ease;
-        background: transparent !important;
-    }
-    .stTabs [data-baseweb="tab"]:hover { color: #94a3b8 !important; background: rgba(255,255,255,0.04) !important; }
-    .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(139,92,246,0.15)) !important;
-        color: #c4b5fd !important;
-        box-shadow: inset 0 0 0 1px rgba(139,92,246,0.3), 0 4px 20px rgba(139,92,246,0.15) !important;
-    }
+/* ── SELECTBOX ── */
+.stSelectbox > div > div {
+    background: rgba(13,17,23,0.9) !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
+    border-radius: 10px !important; color: var(--text) !important;
+    font-family: var(--mono) !important; font-size: 0.82rem !important;
+}
+.stSelectbox > div > div:focus-within { border-color: rgba(0,240,255,0.4) !important; box-shadow: 0 0 0 3px rgba(0,240,255,0.08) !important; }
 
-    /* ─── SIDEBAR ─── */
-    section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #070c1a 0%, #03070f 100%) !important;
-        border-right: 1px solid rgba(255,255,255,0.05) !important;
-    }
-    section[data-testid="stSidebar"] .sidebar-title {
-        font-family: 'Space Grotesk', sans-serif;
-        font-size: 0.75rem; font-weight: 700;
-        color: #475569; text-transform: uppercase; letter-spacing: 0.08em;
-        padding: 8px 0 4px;
-    }
-    .sidebar-engine-item {
-        display: flex; align-items: center; gap: 10px;
-        padding: 8px 10px; border-radius: 8px;
-        background: rgba(255,255,255,0.03);
-        border: 1px solid rgba(255,255,255,0.05);
-        margin-bottom: 6px;
-        font-size: 0.8rem; color: #64748b;
-    }
-    .sidebar-engine-dot {
-        width: 6px; height: 6px; border-radius: 50%;
-        background: #34d399;
-        box-shadow: 0 0 6px #34d399;
-        flex-shrink: 0;
-    }
+/* ── TABS ── */
+.stTabs [data-baseweb="tab-list"] {
+    background: rgba(13,17,23,0.8) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 14px !important;
+    padding: 5px !important; gap: 3px !important;
+    backdrop-filter: blur(12px) !important;
+    margin-bottom: 24px !important;
+}
+.stTabs [data-baseweb="tab"] {
+    border-radius: 10px !important; padding: 9px 18px !important;
+    color: var(--slate2) !important; font-weight: 600 !important;
+    font-size: 0.85rem !important; border: none !important;
+    background: transparent !important;
+    transition: all 0.2s ease !important;
+    font-family: var(--sans) !important;
+}
+.stTabs [data-baseweb="tab"]:hover { color: var(--slate) !important; background: var(--glass2) !important; }
+.stTabs [aria-selected="true"] {
+    background: linear-gradient(135deg, rgba(0,240,255,0.08), rgba(99,102,241,0.12)) !important;
+    color: var(--cyan) !important;
+    box-shadow: inset 0 0 0 1px rgba(0,240,255,0.2), 0 0 20px rgba(0,240,255,0.08) !important;
+}
 
-    /* ─── BUTTONS ─── */
-    .stButton > button {
-        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%) !important;
-        color: #fff !important;
-        font-weight: 700 !important; font-size: 0.9rem !important;
-        border-radius: 12px !important; border: none !important;
-        padding: 12px 28px !important;
-        box-shadow: 0 4px 20px rgba(99,102,241,0.35), inset 0 1px 0 rgba(255,255,255,0.15) !important;
-        transition: all 0.2s ease !important;
-        letter-spacing: 0.01em !important;
-    }
-    .stButton > button:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 8px 30px rgba(99,102,241,0.5), inset 0 1px 0 rgba(255,255,255,0.2) !important;
-        background: linear-gradient(135deg, #818cf8 0%, #a78bfa 100%) !important;
-    }
-    .stButton > button:active { transform: translateY(0) !important; }
+/* ── ALERTS ── */
+.stSuccess > div { background: rgba(16,185,129,0.08) !important; border: 1px solid rgba(16,185,129,0.25) !important; border-radius: 10px !important; color: #6EE7B7 !important; }
+.stInfo > div, .stAlert > div { background: rgba(0,240,255,0.06) !important; border: 1px solid rgba(0,240,255,0.18) !important; border-radius: 10px !important; color: #94A3B8 !important; }
+.stError > div { background: rgba(244,63,94,0.08) !important; border: 1px solid rgba(244,63,94,0.25) !important; border-radius: 10px !important; color: #FCA5A5 !important; }
+.stWarning > div { background: rgba(245,158,11,0.08) !important; border: 1px solid rgba(245,158,11,0.25) !important; border-radius: 10px !important; color: #FCD34D !important; }
 
-    /* ─── SELECTBOX ─── */
-    .stSelectbox > div > div {
-        background: rgba(10,15,30,0.9) !important;
-        border: 1px solid rgba(255,255,255,0.1) !important;
-        border-radius: 10px !important; color: #e2e8f0 !important;
-    }
-    .stSelectbox > div > div:focus-within {
-        border-color: rgba(139,92,246,0.5) !important;
-        box-shadow: 0 0 0 3px rgba(139,92,246,0.1) !important;
-    }
+/* ── SPINNER ── */
+.stSpinner > div { border-top-color: var(--cyan) !important; }
 
-    /* ─── SLIDERS ─── */
-    .stSlider > div > div > div > div { background: #6366f1 !important; }
-    .stSlider > div > div > div { background: rgba(255,255,255,0.08) !important; }
+/* ── EXPANDER ── */
+.streamlit-expanderHeader {
+    background: var(--glass2) !important; border: 1px solid var(--border) !important;
+    border-radius: 10px !important; color: var(--text2) !important;
+    font-family: var(--mono) !important; font-size: 0.82rem !important;
+    font-weight: 600 !important;
+}
+.streamlit-expanderContent { border: 1px solid var(--border) !important; border-top: none !important; border-radius: 0 0 10px 10px !important; background: rgba(8,11,16,0.6) !important; }
 
-    /* ─── ALERTS & INFO ─── */
-    .stAlert > div, .stInfo > div {
-        background: rgba(56,189,248,0.07) !important;
-        border: 1px solid rgba(56,189,248,0.2) !important;
-        border-radius: 10px !important;
-        color: #94a3b8 !important;
-    }
-    .stSuccess > div {
-        background: rgba(52,211,153,0.08) !important;
-        border: 1px solid rgba(52,211,153,0.25) !important;
-        border-radius: 10px !important;
-        color: #6ee7b7 !important;
-    }
+/* ── DATAFRAME ── */
+.stDataFrame { border: 1px solid var(--border) !important; border-radius: 12px !important; overflow: hidden !important; }
 
-    /* ─── DATAFRAME ─── */
-    .stDataFrame { border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.07); }
+/* ── COMPONENTS ── */
+.glass-card {
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: 16px; padding: 20px 22px;
+    backdrop-filter: blur(12px);
+    position: relative; overflow: hidden;
+    transition: border-color 0.25s, box-shadow 0.25s;
+}
+.glass-card:hover { border-color: var(--border-glow); box-shadow: 0 0 30px rgba(0,240,255,0.05); }
+.glass-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0,240,255,0.3), transparent);
+}
 
-    /* ─── DIVIDER ─── */
-    .fancy-divider {
-        height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(139,92,246,0.4), rgba(56,189,248,0.4), transparent);
-        margin: 20px 0;
-        border: none;
-    }
+/* KPI CARDS */
+.kpi-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 22px; }
+.kpi-card {
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: 14px; padding: 18px 20px;
+    position: relative; overflow: hidden;
+    transition: all 0.25s ease; cursor: default;
+}
+.kpi-card:hover { transform: translateY(-3px); }
+.kpi-card-top { height: 2px; position: absolute; top: 0; left: 0; right: 0; border-radius: 14px 14px 0 0; }
+.kpi-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px; border-radius: 9px;
+    font-size: 1rem; margin-bottom: 12px;
+}
+.kpi-label { font-size: 0.72rem; font-weight: 700; color: var(--slate2); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 5px; }
+.kpi-value { font-family: var(--mono); font-size: 1.9rem; font-weight: 700; color: var(--text); line-height: 1; }
+.kpi-sub { font-size: 0.75rem; font-weight: 600; margin-top: 6px; display: flex; align-items: center; gap: 4px; }
 
-    /* ─── SPINNER ─── */
-    .stSpinner > div { border-top-color: #8b5cf6 !important; }
+/* HERO */
+.hero {
+    background: linear-gradient(135deg, #080B10 0%, #0D1020 50%, #080B10 100%);
+    border: 1px solid var(--border); border-radius: 18px;
+    padding: 36px 40px; margin: 16px 0 24px;
+    position: relative; overflow: hidden;
+}
+.hero::before {
+    content: ''; position: absolute; inset: 0;
+    background:
+        radial-gradient(ellipse 55% 70% at 5% 50%, rgba(0,240,255,0.06) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 60% at 95% 20%, rgba(99,102,241,0.08) 0%, transparent 60%),
+        radial-gradient(ellipse 30% 40% at 50% 110%, rgba(139,92,246,0.05) 0%, transparent 60%);
+}
+.hero::after {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent 0%, rgba(0,240,255,0.5) 40%, rgba(99,102,241,0.5) 60%, transparent 100%);
+}
+.hero-chip {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: rgba(0,240,255,0.07); border: 1px solid rgba(0,240,255,0.2);
+    border-radius: 100px; padding: 5px 14px 5px 8px;
+    font-size: 0.72rem; font-weight: 700; color: rgba(0,240,255,0.9);
+    text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 16px;
+}
+.hero-chip-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 8px var(--cyan); animation: glow-pulse 2s infinite; }
+.hero-title {
+    font-size: 2.6rem; font-weight: 800; line-height: 1.08; letter-spacing: -0.03em;
+    background: linear-gradient(135deg, #E0F2FE 0%, #00F0FF 30%, #818CF8 65%, #C4B5FD 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin: 0 0 10px;
+}
+.hero-sub { font-size: 0.95rem; color: var(--slate); line-height: 1.65; max-width: 700px; }
+.hero-sub strong { color: var(--text2); font-weight: 600; }
+.hero-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.hero-tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--glass2); border: 1px solid var(--border);
+    border-radius: 7px; padding: 4px 11px;
+    font-size: 0.74rem; font-weight: 500; color: var(--slate);
+}
+.hero-orb {
+    position: absolute; right: 48px; top: 50%; transform: translateY(-50%);
+    width: 160px; height: 160px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,240,255,0.08) 0%, rgba(99,102,241,0.05) 50%, transparent 70%);
+    border: 1px solid rgba(0,240,255,0.1);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 3.5rem;
+    animation: float 6s ease-in-out infinite;
+}
+@keyframes float { 0%,100%{transform:translateY(-50%) scale(1)} 50%{transform:translateY(-55%) scale(1.04)} }
+
+/* BADGES */
+.badge { display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:6px;font-size:0.72rem;font-weight:700;letter-spacing:0.02em; }
+.b-cyan    { background:rgba(0,240,255,0.08);  border:1px solid rgba(0,240,255,0.2);  color:#67E8F9; }
+.b-indigo  { background:rgba(99,102,241,0.1);  border:1px solid rgba(99,102,241,0.25);color:#A5B4FC; }
+.b-emerald { background:rgba(16,185,129,0.1);  border:1px solid rgba(16,185,129,0.25);color:#6EE7B7; }
+.b-rose    { background:rgba(244,63,94,0.1);   border:1px solid rgba(244,63,94,0.25); color:#FCA5A5; }
+.b-amber   { background:rgba(245,158,11,0.1);  border:1px solid rgba(245,158,11,0.25);color:#FCD34D; }
+.b-violet  { background:rgba(139,92,246,0.1);  border:1px solid rgba(139,92,246,0.25);color:#C4B5FD; }
+.b-slate   { background:rgba(148,163,184,0.08);border:1px solid rgba(148,163,184,0.15);color:#94A3B8; }
+
+/* SECTION HEADERS */
+.sec-header { display:flex;align-items:center;gap:10px;margin-bottom:5px; }
+.sec-title { font-size:1.05rem;font-weight:700;color:var(--text); }
+.sec-desc  { font-size:0.82rem;color:var(--slate2);margin-bottom:18px; }
+.divider   { height:1px;background:linear-gradient(90deg,transparent,rgba(0,240,255,0.2),rgba(99,102,241,0.2),transparent);margin:18px 0;border:none; }
+
+/* WORKFLOW NODES (Tab 3) */
+.workflow-bar {
+    display:flex;align-items:center;gap:0;
+    background:var(--glass);border:1px solid var(--border);
+    border-radius:14px;padding:16px 24px;margin-bottom:22px;
+}
+.wf-node {
+    display:flex;align-items:center;gap:12px;flex:1;
+}
+.wf-icon {
+    width:44px;height:44px;border-radius:12px;
+    display:flex;align-items:center;justify-content:center;font-size:1.3rem;
+    flex-shrink:0;
+}
+.wf-icon.done { background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.3); box-shadow:0 0 16px rgba(16,185,129,0.1); }
+.wf-icon.active { background:rgba(0,240,255,0.1);border:1px solid rgba(0,240,255,0.3); box-shadow:0 0 16px rgba(0,240,255,0.15); animation:wf-glow 2s infinite; }
+.wf-icon.idle { background:rgba(255,255,255,0.03);border:1px solid var(--border); }
+@keyframes wf-glow { 0%,100%{box-shadow:0 0 10px rgba(0,240,255,0.1)} 50%{box-shadow:0 0 25px rgba(0,240,255,0.25)} }
+.wf-text {}
+.wf-label { font-size:0.75rem;font-weight:700;color:var(--slate2);text-transform:uppercase;letter-spacing:0.06em; }
+.wf-name  { font-size:0.88rem;font-weight:700;color:var(--text2); }
+.wf-arrow { font-size:1.2rem;color:var(--slate2);padding:0 10px;flex-shrink:0; }
+
+/* TERMINAL CARD */
+.terminal-card {
+    background:#050810;border:1px solid rgba(0,240,255,0.12);
+    border-radius:12px;padding:0;overflow:hidden;margin-bottom:10px;
+}
+.terminal-header {
+    background:rgba(0,240,255,0.04);border-bottom:1px solid rgba(0,240,255,0.08);
+    padding:10px 16px;display:flex;align-items:center;gap:8px;
+}
+.t-dot { width:9px;height:9px;border-radius:50%; }
+.terminal-body { padding:14px 18px;font-family:var(--mono);font-size:0.78rem;color:#94A3B8;line-height:1.8; }
+
+/* SHAP BAR */
+.shap-row { display:flex;align-items:center;gap:12px;margin-bottom:10px; }
+.shap-label { font-family:var(--mono);font-size:0.78rem;color:var(--slate);width:160px;flex-shrink:0;text-align:right; }
+.shap-bar-wrap { flex:1;height:8px;background:rgba(255,255,255,0.05);border-radius:10px;overflow:hidden; }
+.shap-bar { height:100%;border-radius:10px;transition:width 0.6s ease; }
+.shap-val { font-family:var(--mono);font-size:0.75rem;width:70px;flex-shrink:0; }
+
+/* CONFIDENCE GAUGE */
+.conf-ring { display:flex;align-items:center;justify-content:center;margin:10px 0; }
+.conf-center { position:absolute;text-align:center; }
+.conf-pct { font-family:var(--mono);font-size:2rem;font-weight:700;color:var(--cyan); }
+.conf-lbl { font-size:0.7rem;color:var(--slate2);text-transform:uppercase;letter-spacing:0.06em; }
+
+/* DIFF VIEWER */
+.diff-wrap { font-family:var(--mono);font-size:0.78rem;line-height:1.7;border-radius:10px;overflow:hidden;border:1px solid var(--border); }
+.diff-header { background:rgba(255,255,255,0.03);border-bottom:1px solid var(--border);padding:8px 14px;font-size:0.72rem;color:var(--slate2);font-weight:600; }
+.diff-body { background:#050810;padding:12px 14px;overflow-x:auto; }
+.diff-add  { background:rgba(16,185,129,0.08);color:#6EE7B7;display:block; }
+.diff-del  { background:rgba(244,63,94,0.08);color:#FCA5A5;display:block; }
+.diff-ctx  { color:#475569;display:block; }
 </style>
 """, unsafe_allow_html=True)
 
-# ─── HERO BANNER ───────────────────────────────────────────────────────────
-st.markdown("""
-<div class="hero-wrap">
-    <div class="hero-glow-orb"></div>
-    <div class="hero-pill">
-        <div class="hero-dot"></div>
-        Autonomous MLOps Platform · Production Ready
-    </div>
-    <div class="hero-title">AutoHeal-ML Orchestration Platform</div>
-    <div class="hero-sub">
-        <span>Real-time telemetry analytics</span> with Z-Score anomaly detection,
-        <span>XGBoost root-cause classification</span>, SHAP explainability, and
-        <span>LangGraph multi-agent</span> autonomous code remediation pipelines.
-    </div>
-    <div class="hero-tags">
-        <div class="hero-tag"><span class="hero-tag-icon">📡</span> Live Telemetry Ingestor</div>
-        <div class="hero-tag"><span class="hero-tag-icon">🧬</span> XGBoost · SHAP · Drift Monitor</div>
-        <div class="hero-tag"><span class="hero-tag-icon">🤖</span> LangGraph Agent Network</div>
-        <div class="hero-tag"><span class="hero-tag-icon">🐙</span> GitHub PR Automation</div>
-        <div class="hero-tag"><span class="hero-tag-icon">🐳</span> Docker · FastAPI · SQLite</div>
-    </div>
-</div>
-""", unsafe_allow_html=True)
-
-# ─── ENGINE INIT ───────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════
+#  ENGINE INIT
+# ═══════════════════════════════════════════════════════════════════
 @st.cache_resource
 def load_engines():
-    gen      = TelemetryGenerator()
-    ing      = TelemetryIngestor()
-    z_eng    = ZScoreAnomalyEngine()
-    clf      = RootCauseClassifier()
-    shap_eng = SHAPExplainerEngine(clf)
-    drift    = TelemetryDriftMonitor()
-    pipeline = MultiAgentRemediationPipeline()
-    return gen, ing, z_eng, clf, shap_eng, drift, pipeline
+    return (
+        TelemetryGenerator(),
+        TelemetryIngestor(),
+        ZScoreAnomalyEngine(),
+        RootCauseClassifier(),
+        SHAPExplainerEngine(RootCauseClassifier()),
+        TelemetryDriftMonitor(),
+        MultiAgentRemediationPipeline(),
+    )
 
 generator, ingestor, zscore_engine, classifier, shap_engine, drift_monitor, agent_pipeline = load_engines()
 
-# ─── SIDEBAR ───────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════
+#  SIDEBAR
+# ═══════════════════════════════════════════════════════════════════
 with st.sidebar:
-    st.markdown('<div class="sidebar-title">⚙️ Stream Controls</div>', unsafe_allow_html=True)
-    batch_size   = st.slider("Batch Size", 20, 200, 50, help="Number of synthetic telemetry logs to ingest per run")
-    anomaly_rate = st.slider("Anomaly Injection Ratio", 0.0, 0.5, 0.2, 0.05, help="Fraction of failure-mode logs to inject")
+    st.markdown("""
+    <div class="sidebar-logo">
+        <div class="sidebar-logo-icon">⚡</div>
+        <div class="sidebar-logo-text">
+            <div class="sidebar-logo-name">AutoHeal-ML</div>
+            <div class="sidebar-logo-sub">MLOps Control Center</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<div class="sidebar-section">⚙️ Stream Controls</div>', unsafe_allow_html=True)
+    batch_size   = st.slider("Batch Size", 20, 200, 50, help="Synthetic telemetry logs per ingest run")
+    anomaly_rate = st.slider("Anomaly Injection Ratio", 0.0, 0.5, 0.2, 0.05, help="Fraction of failure-mode logs")
 
     st.markdown("<br>", unsafe_allow_html=True)
-    ingest_btn = st.button("🚀 Ingest Telemetry Stream", width="stretch")
+    ingest_btn = st.button("🚀  Ingest Telemetry Stream", use_container_width=True)
     if ingest_btn:
-        with st.spinner("Ingesting stream & retraining classifier..."):
+        with st.spinner("Ingesting & retraining…"):
             batch = generator.generate_batch(count=batch_size, anomaly_ratio=anomaly_rate)
             ingestor.ingest_records(batch)
             classifier.train(batch)
             shap_engine.initialize_explainer(batch)
-        st.success(f"✅ {len(batch)} records ingested!")
+        st.success(f"✅  {len(batch)} records ingested")
 
-    st.markdown('<hr class="fancy-divider">', unsafe_allow_html=True)
-    st.markdown('<div class="sidebar-title">🟢 Active Engines</div>', unsafe_allow_html=True)
-    for engine, desc in [
-        ("Z-Score Engine", "Rolling Window Anomaly"),
+    st.markdown('<hr style="border:none;border-top:1px solid rgba(255,255,255,0.06);margin:16px 0">', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-section">🟢 Active Engines</div>', unsafe_allow_html=True)
+    for nm, desc in [
+        ("Z-Score Engine",     "Rolling Window Anomaly"),
         ("XGBoost Classifier", "Multi-Class Root Cause"),
-        ("SHAP Explainer", "Feature Attributions"),
-        ("LangGraph Agents", "Code Remediation"),
-        ("PR Automator", "GitHub Integration"),
+        ("SHAP Explainer",     "Feature Attribution"),
+        ("LangGraph Agents",   "Code Remediation"),
+        ("PR Automator",       "GitHub Integration"),
     ]:
-        st.markdown(f'<div class="sidebar-engine-item"><div class="sidebar-engine-dot"></div><div><strong>{engine}</strong><br><span style="font-size:0.72rem;color:#334155">{desc}</span></div></div>', unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class="engine-item">
+            <div class="engine-dot"></div>
+            <div><div class="engine-name">{nm}</div><div class="engine-desc">{desc}</div></div>
+        </div>""", unsafe_allow_html=True)
 
-# ─── TABS ──────────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════
+#  HERO BANNER
+# ═══════════════════════════════════════════════════════════════════
+st.markdown("""
+<div class="hero">
+    <div class="hero-orb">⚡</div>
+    <div class="hero-chip"><div class="hero-chip-dot"></div>Live · Autonomous MLOps & Self-Healing Pipeline</div>
+    <div class="hero-title">AutoHeal-ML<br>Orchestration Platform</div>
+    <div class="hero-sub">
+        <strong>Real-time telemetry analytics</strong> with Z-Score anomaly detection ·
+        <strong>XGBoost root-cause ML</strong> with SHAP explainability ·
+        <strong>LangGraph multi-agent</strong> code remediation · Automated GitHub PRs
+    </div>
+    <div class="hero-chips">
+        <div class="hero-tag">📡 Live Telemetry</div>
+        <div class="hero-tag">🧬 XGBoost · SHAP</div>
+        <div class="hero-tag">🤖 LangGraph Agents</div>
+        <div class="hero-tag">🐙 GitHub PR Automation</div>
+        <div class="hero-tag">🐳 Docker · FastAPI</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# ═══════════════════════════════════════════════════════════════════
+#  TABS
+# ═══════════════════════════════════════════════════════════════════
 tab1, tab2, tab3, tab4 = st.tabs([
-    "📊  Telemetry Stream & Z-Scores",
+    "📡  Telemetry Stream & Z-Scores",
     "🧠  Root-Cause ML & SHAP",
     "🤖  Multi-Agent Remediation",
     "🔀  Git Diffs & PR Automation",
 ])
 
 records = ingestor.fetch_all(limit=300)
-df = pd.DataFrame(records) if records else pd.DataFrame()
+df      = pd.DataFrame(records) if records else pd.DataFrame()
 
-CHART_LAYOUT = dict(
-    paper_bgcolor="rgba(5,10,25,0)",
-    plot_bgcolor="rgba(5,10,25,0)",
-    font=dict(family="Inter, sans-serif", color="#94a3b8", size=12),
-    margin=dict(l=10, r=10, t=46, b=10),
-    title_font=dict(size=14, color="#e2e8f0", family="Space Grotesk"),
-    legend=dict(bgcolor="rgba(0,0,0,0)", bordercolor="rgba(255,255,255,0.06)", borderwidth=1),
-    xaxis=dict(gridcolor="rgba(255,255,255,0.04)", zerolinecolor="rgba(255,255,255,0.06)"),
-    yaxis=dict(gridcolor="rgba(255,255,255,0.04)", zerolinecolor="rgba(255,255,255,0.06)"),
+CHART = dict(
+    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+    font=dict(family="JetBrains Mono, monospace", color="#64748B", size=11),
+    margin=dict(l=8, r=8, t=44, b=8),
+    title_font=dict(size=13, color="#CBD5E1", family="Plus Jakarta Sans"),
+    legend=dict(bgcolor="rgba(0,0,0,0)", bordercolor="rgba(255,255,255,0.05)", borderwidth=1),
+    xaxis=dict(gridcolor="rgba(255,255,255,0.04)", zerolinecolor="rgba(255,255,255,0.05)", linecolor="rgba(255,255,255,0.04)"),
+    yaxis=dict(gridcolor="rgba(255,255,255,0.04)", zerolinecolor="rgba(255,255,255,0.05)", linecolor="rgba(255,255,255,0.04)"),
 )
 
-# ─────────────────────────────────────────────────────────────
+EMPTY_STATE = lambda icon, title, msg: st.markdown(f"""
+<div class="glass-card" style="text-align:center;padding:64px 20px;margin-top:10px">
+    <div style="font-size:3.5rem;margin-bottom:14px">{icon}</div>
+    <div style="font-size:1.15rem;font-weight:700;color:#E2E8F0;margin-bottom:8px">{title}</div>
+    <div style="font-size:0.85rem;color:#475569">{msg}</div>
+</div>""", unsafe_allow_html=True)
+
+# ───────────────────────────────────────────────────────────────────
 # TAB 1 — TELEMETRY STREAM & Z-SCORES
-# ─────────────────────────────────────────────────────────────
+# ───────────────────────────────────────────────────────────────────
 with tab1:
     if not df.empty:
-        analyzed_logs  = zscore_engine.compute_z_scores()
-        df_z           = pd.DataFrame(analyzed_logs)
-        error_count    = len(df[df["status_code"] >= 400])
-        avg_lat        = round(df["response_time_ms"].mean(), 1)
-        anomaly_count  = len(df_z[abs(df_z["z_score"]) >= 2.0]) if not df_z.empty else 0
-        error_pct      = round(error_count / len(df) * 100, 1)
+        analyzed    = zscore_engine.compute_z_scores()
+        df_z        = pd.DataFrame(analyzed)
+        total       = len(df)
+        errors      = len(df[df["status_code"] >= 400])
+        error_pct   = round(errors / total * 100, 1)
+        avg_lat     = round(df["response_time_ms"].mean(), 1)
+        spikes      = len(df_z[abs(df_z["z_score"]) >= 2.0]) if not df_z.empty else 0
 
-        # KPI cards
         st.markdown(f"""
         <div class="kpi-grid">
-            <div class="kpi-card blue">
-                <div class="kpi-icon blue">📡</div>
-                <div class="kpi-label">Total Logs Ingested</div>
-                <div class="kpi-value">{len(df):,}</div>
-                <div class="kpi-sub neutral">Rolling telemetry window</div>
-            </div>
-            <div class="kpi-card rose">
-                <div class="kpi-icon rose">🔥</div>
-                <div class="kpi-label">HTTP Errors (4xx/5xx)</div>
-                <div class="kpi-value">{error_count:,}</div>
-                <div class="kpi-sub down">↑ {error_pct}% failure rate</div>
-            </div>
-            <div class="kpi-card violet">
-                <div class="kpi-icon violet">⚡</div>
-                <div class="kpi-label">Z-Score Anomalies</div>
-                <div class="kpi-value">{anomaly_count}</div>
-                <div class="kpi-sub neutral">|Z| ≥ 2.0 threshold</div>
-            </div>
-            <div class="kpi-card amber">
-                <div class="kpi-icon amber">⏱️</div>
-                <div class="kpi-label">Mean Latency (ms)</div>
-                <div class="kpi-value">{avg_lat}</div>
-                <div class="kpi-sub up">↓ within SLA</div>
-            </div>
+          <div class="kpi-card" style="border-top:2px solid #00F0FF20">
+            <div class="kpi-card-top" style="background:linear-gradient(90deg,#00F0FF,#38BDF8)"></div>
+            <div class="kpi-badge" style="background:rgba(0,240,255,0.08);border:1px solid rgba(0,240,255,0.2)">📡</div>
+            <div class="kpi-label">Total Logs Processed</div>
+            <div class="kpi-value">{total:,}</div>
+            <div class="kpi-sub" style="color:#67E8F9">● Live window</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-card-top" style="background:linear-gradient(90deg,#F43F5E,#FB7185)"></div>
+            <div class="kpi-badge" style="background:rgba(244,63,94,0.1);border:1px solid rgba(244,63,94,0.2)">🔥</div>
+            <div class="kpi-label">HTTP Errors (4xx/5xx)</div>
+            <div class="kpi-value">{errors:,}</div>
+            <div class="kpi-sub" style="color:#FCA5A5">↑ {error_pct}% failure rate</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-card-top" style="background:linear-gradient(90deg,#F59E0B,#FCD34D)"></div>
+            <div class="kpi-badge" style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2)">⏱️</div>
+            <div class="kpi-label">Mean Latency (ms)</div>
+            <div class="kpi-value">{avg_lat}</div>
+            <div class="kpi-sub" style="color:#FCD34D">SLA ≤ 300ms</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-card-top" style="background:linear-gradient(90deg,#8B5CF6,#C4B5FD)"></div>
+            <div class="kpi-badge" style="background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.2)">⚡</div>
+            <div class="kpi-label">Z-Score Spikes |Z| ≥ 2</div>
+            <div class="kpi-value">{spikes}</div>
+            <div class="kpi-sub" style="color:#C4B5FD">Anomaly events</div>
+          </div>
         </div>
         """, unsafe_allow_html=True)
 
         if not df_z.empty:
-            # Scatter Plot
             fig = px.scatter(
                 df_z, x="timestamp", y="response_time_ms",
                 color="z_score", size="response_time_ms",
-                hover_data=["service_name", "endpoint", "status_code", "z_score"],
-                title="📡 Response Latency vs. Rolling Z-Score Anomaly Detection",
-                color_continuous_scale=[[0,"#1e1b4b"],[0.3,"#4f46e5"],[0.65,"#8b5cf6"],[1,"#f43f5e"]],
-                template="plotly_dark"
+                hover_data=["service_name","endpoint","status_code","z_score"],
+                title="📡 Response Latency · Rolling Z-Score Anomaly Detection",
+                color_continuous_scale=[[0,"#0D1117"],[0.35,"#6366F1"],[0.7,"#00F0FF"],[1,"#F43F5E"]],
+                template="plotly_dark",
             )
-            fig.add_hline(y=300, line_dash="dash", line_color="#fbbf24", line_width=1.5,
-                          annotation_text="SLA Threshold 300ms", annotation_font_color="#fbbf24", annotation_position="top left")
-            fig.update_layout(**CHART_LAYOUT)
-            fig.update_traces(marker=dict(opacity=0.85, line=dict(width=0.5, color="rgba(255,255,255,0.15)")))
-            st.plotly_chart(fig, width="stretch")
+            fig.add_hline(y=300, line_dash="dash", line_color="#F59E0B", line_width=1.2,
+                          annotation_text="SLA 300ms", annotation_font_color="#F59E0B")
+            fig.update_traces(marker=dict(opacity=0.8, line=dict(width=0.4, color="rgba(255,255,255,0.1)")))
+            fig.update_layout(**CHART)
+            st.plotly_chart(fig, use_container_width=True)
 
             c1, c2 = st.columns(2)
             with c1:
-                # Error rate by service
                 if "service_name" in df_z.columns and "status_code" in df_z.columns:
-                    svc_err = df_z.groupby("service_name").apply(lambda x: (x["status_code"] >= 400).mean() * 100).reset_index()
-                    svc_err.columns = ["Service", "Error Rate (%)"]
-                    svc_err = svc_err.sort_values("Error Rate (%)", ascending=True)
-                    fig2 = px.bar(svc_err, x="Error Rate (%)", y="Service", orientation="h",
-                                  title="🔥 Error Rate by Microservice",
-                                  color="Error Rate (%)", color_continuous_scale=[[0,"#312e81"],[0.5,"#7c3aed"],[1,"#f43f5e"]],
-                                  template="plotly_dark")
-                    fig2.update_layout(**CHART_LAYOUT)
-                    st.plotly_chart(fig2, width="stretch")
-
+                    svc = df_z.groupby("service_name").apply(
+                        lambda x: (x["status_code"] >= 400).mean() * 100, include_groups=False
+                    ).reset_index()
+                    svc.columns = ["Service","Error %"]
+                    svc = svc.sort_values("Error %", ascending=True)
+                    f2 = px.bar(svc, x="Error %", y="Service", orientation="h",
+                                title="🔥 Error Rate by Microservice",
+                                color="Error %",
+                                color_continuous_scale=[[0,"#1E1B4B"],[0.5,"#6366F1"],[1,"#F43F5E"]],
+                                template="plotly_dark")
+                    f2.update_layout(**CHART); f2.update_traces(marker_line_width=0)
+                    st.plotly_chart(f2, use_container_width=True)
             with c2:
-                # Latency distribution
-                fig3 = px.histogram(df_z, x="response_time_ms", nbins=40,
-                                    title="⏱️ Latency Distribution (ms)",
-                                    color_discrete_sequence=["#6366f1"],
-                                    template="plotly_dark")
-                fig3.add_vline(x=300, line_dash="dash", line_color="#fbbf24", line_width=1.5)
-                fig3.update_layout(**CHART_LAYOUT)
-                st.plotly_chart(fig3, width="stretch")
+                f3 = px.histogram(df_z, x="response_time_ms", nbins=40,
+                                  title="⏱️ Latency Distribution (ms)",
+                                  color_discrete_sequence=["#00F0FF"],
+                                  template="plotly_dark")
+                f3.add_vline(x=300, line_dash="dash", line_color="#F59E0B", line_width=1.2)
+                f3.update_layout(**CHART)
+                st.plotly_chart(f3, use_container_width=True)
 
-            st.markdown('<hr class="fancy-divider">', unsafe_allow_html=True)
-            st.markdown('<div class="section-title">📋 Telemetry Log Registry</div>', unsafe_allow_html=True)
+            st.markdown('<hr class="divider">', unsafe_allow_html=True)
+            st.markdown('<div class="sec-header"><div class="sec-title">📋 Telemetry Log Registry</div><div class="badge b-slate">last 30</div></div>', unsafe_allow_html=True)
             st.dataframe(
-                df_z[["timestamp", "service_name", "endpoint", "status_code", "response_time_ms", "z_score", "error_message"]].head(30),
-                width="stretch"
+                df_z[["timestamp","service_name","endpoint","status_code","response_time_ms","z_score","error_message"]].head(30),
+                use_container_width=True,
             )
     else:
-        st.markdown("""
-        <div class="section-card" style="text-align:center;padding:60px 20px;">
-            <div style="font-size:4rem;margin-bottom:16px">📡</div>
-            <div style="color:#e2e8f0;font-size:1.2rem;font-weight:700;margin-bottom:8px">No Telemetry Data Yet</div>
-            <div style="color:#475569">Click <strong style="color:#a78bfa">🚀 Ingest Telemetry Stream</strong> in the sidebar to generate live traffic!</div>
+        EMPTY_STATE("📡","No Telemetry Data","Click <strong>🚀 Ingest Telemetry Stream</strong> in the sidebar to generate live traffic.")
+
+# ───────────────────────────────────────────────────────────────────
+# TAB 2 — ROOT-CAUSE ML & SHAP
+# ───────────────────────────────────────────────────────────────────
+with tab2:
+    anomalies = zscore_engine.detect_and_flag_anomalies()
+    if anomalies:
+        # Alert banner
+        st.markdown(f"""
+        <div class="glass-card" style="border-color:rgba(244,63,94,0.25);border-left:3px solid #F43F5E;padding:14px 20px;margin-bottom:18px;background:rgba(244,63,94,0.04)">
+            <div style="display:flex;align-items:center;gap:12px">
+                <span style="font-size:1.4rem">🚨</span>
+                <div>
+                    <div style="font-weight:700;color:#FCA5A5;font-size:0.9rem">{len(anomalies)} Anomaly Event{'s' if len(anomalies)>1 else ''} Detected</div>
+                    <div style="color:#64748B;font-size:0.8rem">Select an event below to run XGBoost root-cause classification and SHAP attribution analysis.</div>
+                </div>
+                <div class="badge b-rose" style="margin-left:auto">{len(anomalies)} Events</div>
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
-# ─────────────────────────────────────────────────────────────
-# TAB 2 — ROOT-CAUSE ML & SHAP
-# ─────────────────────────────────────────────────────────────
-with tab2:
-    anomalies = zscore_engine.detect_and_flag_anomalies()
-
-    if anomalies:
-        col_head, col_badge = st.columns([5, 1])
-        with col_head:
-            st.markdown(f'<div class="section-title">🧠 Predictive Root-Cause Classification & SHAP Attributions</div>', unsafe_allow_html=True)
-        with col_badge:
-            st.markdown(f'<div class="badge badge-violet" style="margin-top:4px">{len(anomalies)} anomalies</div>', unsafe_allow_html=True)
-
-        selected_idx = st.selectbox(
+        idx = st.selectbox(
             "Select Anomaly Event to Diagnose",
             range(len(anomalies)),
             format_func=lambda i: f"[{anomalies[i]['root_cause_category']}]  {anomalies[i]['service_name']}  ·  {anomalies[i]['endpoint']}  (Z = {anomalies[i]['z_score']})",
-            key="tab2_selectbox"
         )
-
-        target_anomaly = anomalies[selected_idx]
-        pred     = classifier.predict(target_anomaly)
-        shap_res = shap_engine.explain(target_anomaly)
-
-        # KPI row for selected anomaly
-        conf_pct = pred['confidence'] * 100
-        st.markdown(f"""
-        <div class="kpi-grid">
-            <div class="kpi-card violet">
-                <div class="kpi-icon violet">🎯</div>
-                <div class="kpi-label">Predicted Failure Mode</div>
-                <div class="kpi-value" style="font-size:1.4rem">{pred['predicted_class']}</div>
-                <div class="kpi-sub neutral">XGBoost Classification</div>
-            </div>
-            <div class="kpi-card blue">
-                <div class="kpi-icon blue">📊</div>
-                <div class="kpi-label">Model Confidence</div>
-                <div class="kpi-value">{conf_pct:.1f}<span style="font-size:1.2rem">%</span></div>
-                <div class="kpi-sub up">High certainty</div>
-            </div>
-            <div class="kpi-card amber">
-                <div class="kpi-icon amber">🔬</div>
-                <div class="kpi-label">Top SHAP Feature</div>
-                <div class="kpi-value" style="font-size:1.1rem">{shap_res['top_feature']}</div>
-                <div class="kpi-sub neutral">Primary signal</div>
-            </div>
-            <div class="kpi-card rose">
-                <div class="kpi-icon rose">🚨</div>
-                <div class="kpi-label">Root Cause Category</div>
-                <div class="kpi-value" style="font-size:1.1rem">{target_anomaly['root_cause_category']}</div>
-                <div class="kpi-sub down">Anomaly flagged</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        anomaly  = anomalies[idx]
+        pred     = classifier.predict(anomaly)
+        shap_res = shap_engine.explain(anomaly)
+        conf     = pred["confidence"] * 100
 
         c1, c2 = st.columns(2)
+
+        # ── Left: Prediction + Confidence ──
         with c1:
-            prob_df = pd.DataFrame(list(pred["probabilities"].items()), columns=["Failure Mode", "Probability"])
-            prob_df = prob_df.sort_values("Probability", ascending=True)
-            fig_p = px.bar(
-                prob_df, x="Probability", y="Failure Mode", orientation="h",
-                title="🎯 Failure Mode Probability Distribution",
-                color="Probability",
-                color_continuous_scale=[[0,"#1e1b4b"],[0.4,"#6366f1"],[0.75,"#a78bfa"],[1,"#38bdf8"]],
-                template="plotly_dark"
-            )
-            fig_p.update_layout(**CHART_LAYOUT)
-            fig_p.update_traces(marker_line_width=0)
-            st.plotly_chart(fig_p, width="stretch")
+            st.markdown(f"""
+            <div class="glass-card" style="height:100%">
+                <div class="sec-header">
+                    <div class="sec-title">🎯 ML Failure Mode Prediction</div>
+                    <div class="badge b-indigo">XGBoost</div>
+                </div>
+                <div style="margin-bottom:18px">
+                    <div style="font-size:0.72rem;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px">Predicted Class</div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:700;color:#00F0FF">{pred['predicted_class']}</div>
+                </div>
+                <div style="margin-bottom:18px">
+                    <div style="font-size:0.72rem;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:8px">Model Confidence</div>
+                    <div style="display:flex;align-items:center;gap:12px">
+                        <div style="flex:1;height:10px;background:rgba(255,255,255,0.05);border-radius:10px;overflow:hidden">
+                            <div style="height:100%;width:{conf:.1f}%;background:linear-gradient(90deg,#00F0FF,#6366F1);border-radius:10px;transition:width 0.8s ease"></div>
+                        </div>
+                        <div style="font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:700;color:#00F0FF;width:52px;text-align:right">{conf:.1f}%</div>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
-        with c2:
-            attr_df = pd.DataFrame(list(shap_res["feature_attributions"].items()), columns=["Feature", "SHAP Value"])
-            attr_df = attr_df.sort_values("SHAP Value", ascending=True)
-            colors  = ["#f43f5e" if v > 0 else "#34d399" for v in attr_df["SHAP Value"]]
-            fig_s = go.Figure(go.Bar(
-                x=attr_df["SHAP Value"], y=attr_df["Feature"],
-                orientation="h", marker_color=colors,
-                marker_line_width=0,
-                hovertemplate="<b>%{y}</b><br>SHAP: %{x:.4f}<extra></extra>"
+            prob_df = pd.DataFrame(list(pred["probabilities"].items()), columns=["Mode","Prob"]).sort_values("Prob", ascending=True)
+            fp = go.Figure(go.Bar(
+                x=prob_df["Prob"], y=prob_df["Mode"], orientation="h",
+                marker=dict(
+                    color=prob_df["Prob"],
+                    colorscale=[[0,"#0D1117"],[0.4,"#6366F1"],[0.75,"#00F0FF"],[1,"#38BDF8"]],
+                    line=dict(width=0),
+                ),
+                hovertemplate="<b>%{y}</b><br>Prob: %{x:.4f}<extra></extra>",
             ))
-            fig_s.update_layout(title="🔬 SHAP Feature Attribution Breakdown", **CHART_LAYOUT)
-            st.plotly_chart(fig_s, width="stretch")
+            fp.update_layout(title="Failure Mode Probabilities", **CHART)
+            st.plotly_chart(fp, use_container_width=True)
 
-        st.markdown(f"""
-        <div class="section-card" style="border-left: 3px solid #6366f1; padding: 16px 20px;">
-            <div class="section-title">🧾 AI Diagnosis Summary</div>
-            <div style="color:#94a3b8;font-size:0.9rem;line-height:1.7">{shap_res["summary"]}</div>
-        </div>
-        """, unsafe_allow_html=True)
+        # ── Right: SHAP ──
+        with c2:
+            attrs = shap_res.get("feature_attributions", {})
+            sorted_attrs = sorted(attrs.items(), key=lambda x: abs(x[1]), reverse=True)
+            max_val = max(abs(v) for _, v in sorted_attrs) if sorted_attrs else 1
+
+            shap_bars = ""
+            for feat, val in sorted_attrs[:8]:
+                pct  = abs(val) / max_val * 100
+                col  = "#00F0FF" if val > 0 else "#F43F5E"
+                sign = "+" if val > 0 else ""
+                shap_bars += f"""
+                <div class="shap-row">
+                    <div class="shap-label">{feat[:20]}</div>
+                    <div class="shap-bar-wrap"><div class="shap-bar" style="width:{pct:.1f}%;background:{col};opacity:0.85"></div></div>
+                    <div class="shap-val" style="color:{col};font-size:0.73rem">{sign}{val:.4f}</div>
+                </div>"""
+
+            st.markdown(f"""
+            <div class="glass-card" style="height:auto">
+                <div class="sec-header">
+                    <div class="sec-title">🔬 SHAP Feature Attribution</div>
+                    <div class="badge b-cyan">Top 8 Features</div>
+                </div>
+                <div style="margin-bottom:14px;font-size:0.78rem;color:#475569">
+                    <span style="color:#00F0FF">■</span> Positive (pushes toward this class) &nbsp;
+                    <span style="color:#F43F5E">■</span> Negative (pushes away)
+                </div>
+                {shap_bars}
+                <div style="margin-top:16px;padding:12px 14px;background:rgba(0,240,255,0.04);border:1px solid rgba(0,240,255,0.1);border-radius:10px;font-size:0.82rem;color:#94A3B8;line-height:1.65">
+                    <span style="color:#00F0FF;font-weight:700">Top Feature:</span> <code style="color:#67E8F9">{shap_res.get('top_feature','—')}</code><br>
+                    {shap_res.get('summary','')[:200]}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
     else:
-        st.markdown("""
-        <div class="section-card" style="text-align:center;padding:60px 20px;">
-            <div style="font-size:4rem;margin-bottom:16px">🧠</div>
-            <div style="color:#e2e8f0;font-size:1.2rem;font-weight:700;margin-bottom:8px">No Anomalies Detected</div>
-            <div style="color:#475569">Ingest a telemetry stream with anomalies to run root-cause ML analysis.</div>
-        </div>
-        """, unsafe_allow_html=True)
+        EMPTY_STATE("🧠","No Anomalies Detected","Ingest a telemetry stream with anomaly injection to run root-cause ML analysis.")
 
-# ─────────────────────────────────────────────────────────────
+# ───────────────────────────────────────────────────────────────────
 # TAB 3 — MULTI-AGENT REMEDIATION
-# ─────────────────────────────────────────────────────────────
+# ───────────────────────────────────────────────────────────────────
 with tab3:
     st.markdown("""
-    <div class="section-title">🤖 LangGraph Multi-Agent Remediation Orchestrator</div>
-    <div class="section-desc">
-        <span class="badge badge-violet">Investigator Agent</span>&nbsp;→&nbsp;
-        <span class="badge badge-info">Developer Agent</span>&nbsp;→&nbsp;
-        <span class="badge badge-success">Validator Agent</span>
-        &nbsp;&nbsp;· Autonomous code patch synthesis & AST sandbox testing
+    <div class="workflow-bar">
+        <div class="wf-node">
+            <div class="wf-icon done">🔍</div>
+            <div class="wf-text">
+                <div class="wf-label">Step 01</div>
+                <div class="wf-name">Investigator</div>
+            </div>
+        </div>
+        <div class="wf-arrow">→</div>
+        <div class="wf-node">
+            <div class="wf-icon done">🛠️</div>
+            <div class="wf-text">
+                <div class="wf-label">Step 02</div>
+                <div class="wf-name">Developer</div>
+            </div>
+        </div>
+        <div class="wf-arrow">→</div>
+        <div class="wf-node">
+            <div class="wf-icon done">✅</div>
+            <div class="wf-text">
+                <div class="wf-label">Step 03</div>
+                <div class="wf-name">Validator</div>
+            </div>
+        </div>
+        <div style="margin-left:auto">
+            <div class="badge b-emerald" style="font-size:0.75rem;padding:5px 12px">● Agents Online</div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
     anomalies = zscore_engine.detect_and_flag_anomalies()
     if anomalies:
-        selected_anomaly_idx = st.selectbox(
-            "Target Anomaly Event for Auto-Healing",
+        idx3 = st.selectbox(
+            "Target Anomaly for Auto-Healing",
             range(len(anomalies)),
             format_func=lambda i: f"ID: {anomalies[i]['id'][:8]}  ·  {anomalies[i]['service_name']}  ·  [{anomalies[i]['root_cause_category']}]",
-            key="tab3_selectbox"
+            key="tab3_sel",
         )
-        anomaly_to_fix = anomalies[selected_anomaly_idx]
+        target = anomalies[idx3]
 
-        a_col, b_col = st.columns([3, 1])
-        with a_col:
-            st.markdown(f"""
-            <div class="agent-step">
-                <div class="agent-step-header">
-                    <span class="badge badge-warning">⚠️ Selected Anomaly</span>
-                </div>
-                <div style="color:#94a3b8;font-size:0.85rem;font-family:'JetBrains Mono',monospace;">
-                    ID: {anomaly_to_fix['id'][:16]}…&emsp;|&emsp;
-                    Service: <strong style="color:#a78bfa">{anomaly_to_fix['service_name']}</strong>&emsp;|&emsp;
-                    Category: <strong style="color:#f43f5e">{anomaly_to_fix['root_cause_category']}</strong>&emsp;|&emsp;
-                    Z-Score: <strong style="color:#fbbf24">{anomaly_to_fix['z_score']}</strong>
-                </div>
+        st.markdown(f"""
+        <div class="terminal-card" style="margin-bottom:16px">
+            <div class="terminal-header">
+                <div class="t-dot" style="background:#F43F5E"></div>
+                <div class="t-dot" style="background:#F59E0B"></div>
+                <div class="t-dot" style="background:#10B981"></div>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:0.73rem;color:#475569;margin-left:8px">anomaly-event.json</span>
             </div>
-            """, unsafe_allow_html=True)
-
-        if st.button("🤖 Trigger Multi-Agent Remediation", width="content"):
-            with st.spinner("Multi-Agent System orchestrating remediation pipeline..."):
-                remediation_res = agent_pipeline.run_remediation_workflow(anomaly_to_fix)
-                st.session_state["last_remediation"] = remediation_res
-            st.success("✅ Remediation Workflow Complete! View results below.")
-    else:
-        st.markdown("""
-        <div class="section-card" style="text-align:center;padding:60px 20px;">
-            <div style="font-size:4rem;margin-bottom:16px">🤖</div>
-            <div style="color:#e2e8f0;font-size:1.2rem;font-weight:700;margin-bottom:8px">Agents Standing By</div>
-            <div style="color:#475569">Ingest a telemetry stream first to detect anomaly events for remediation.</div>
+            <div class="terminal-body">
+                <span style="color:#64748B">id:</span>       <span style="color:#67E8F9">{target['id'][:32]}…</span><br>
+                <span style="color:#64748B">service:</span>  <span style="color:#C4B5FD">{target['service_name']}</span><br>
+                <span style="color:#64748B">endpoint:</span> <span style="color:#94A3B8">{target['endpoint']}</span><br>
+                <span style="color:#64748B">category:</span> <span style="color:#FCA5A5">{target['root_cause_category']}</span><br>
+                <span style="color:#64748B">z_score:</span>  <span style="color:#FCD34D">{target['z_score']}</span>
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
+        if st.button("🤖  Trigger Multi-Agent Remediation Pipeline", use_container_width=False):
+            with st.spinner("🤖  Agents investigating, patching, and validating…"):
+                result = agent_pipeline.run_remediation_workflow(target)
+                st.session_state["last_remediation"] = result
+            st.success("✅  Remediation workflow completed — view execution trace below!")
+    else:
+        EMPTY_STATE("🤖","Agents Standing By","Ingest a telemetry stream to detect anomaly events for autonomous remediation.")
+
     if "last_remediation" in st.session_state:
         res = st.session_state["last_remediation"]
-        st.markdown('<hr class="fancy-divider">', unsafe_allow_html=True)
-        st.markdown('<div class="section-title" style="margin-bottom:16px">📋 Multi-Agent Execution Trace</div>', unsafe_allow_html=True)
-        for trace_step in res.get("execution_trace", []):
-            step_name = trace_step["step"]
-            status    = trace_step["status"]
-            if status == "COMPLETED":
-                with st.expander(f"✅  {step_name}  ·  {status}", expanded=True):
-                    st.json(trace_step.get("output", {}))
+        st.markdown('<hr class="divider">', unsafe_allow_html=True)
+        st.markdown('<div class="sec-header"><div class="sec-title">📋 Execution Trace</div><div class="badge b-emerald">COMPLETED</div></div>', unsafe_allow_html=True)
 
-# ─────────────────────────────────────────────────────────────
+        for step in res.get("execution_trace", []):
+            icon = "✅" if step["status"] == "COMPLETED" else "⏳"
+            with st.expander(f"{icon}  {step['step']}  ·  {step['status']}", expanded=False):
+                st.markdown(f"""
+                <div class="terminal-card">
+                    <div class="terminal-header">
+                        <div class="t-dot" style="background:#F43F5E"></div>
+                        <div class="t-dot" style="background:#F59E0B"></div>
+                        <div class="t-dot" style="background:#10B981"></div>
+                        <span style="font-family:'JetBrains Mono',monospace;font-size:0.73rem;color:#475569;margin-left:8px">output.json</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                st.json(step.get("output", {}))
+
+# ───────────────────────────────────────────────────────────────────
 # TAB 4 — GIT DIFFS & PR AUTOMATION
-# ─────────────────────────────────────────────────────────────
+# ───────────────────────────────────────────────────────────────────
 with tab4:
     st.markdown("""
-    <div class="section-title">🔀 Automated Patch Review & GitHub Pull Request</div>
-    <div class="section-desc">Inspect the AI-generated backward-compatible code fix, review the unified diff, and trigger automated PR creation.</div>
+    <div class="sec-header"><div class="sec-title">🔀 Patch Review & GitHub Pull Request Automation</div></div>
+    <div class="sec-desc">AI-generated backward-compatible code fix · Unified diff viewer · One-click GitHub PR creation</div>
     """, unsafe_allow_html=True)
 
     if "last_remediation" in st.session_state:
         res   = st.session_state["last_remediation"]
         patch = res.get("patch_solution", {})
+        code  = patch.get("patch_code",  "# No patch generated")
+        diff  = patch.get("patch_diff",  "# No diff available")
 
         c1, c2 = st.columns(2)
         with c1:
-            st.markdown('<div class="section-title" style="font-size:0.95rem;margin-bottom:10px">📄 Generated Backward-Compatible Code</div>', unsafe_allow_html=True)
-            st.code(patch.get("patch_code", "# No patch generated"), language="python")
+            st.markdown('<div class="sec-header" style="margin-bottom:8px"><div class="sec-title" style="font-size:0.9rem">📄 Generated Code</div><div class="badge b-cyan">Backward-Compatible</div></div>', unsafe_allow_html=True)
+            st.code(code, language="python")
 
         with c2:
-            st.markdown('<div class="section-title" style="font-size:0.95rem;margin-bottom:10px">🔀 Unified Git Diff</div>', unsafe_allow_html=True)
-            st.code(patch.get("patch_diff", "# No diff available"), language="diff")
+            # Render styled diff
+            lines = diff.split("\n")
+            rendered = ""
+            for ln in lines:
+                if ln.startswith("+") and not ln.startswith("+++"):
+                    rendered += f'<span class="diff-add">+ {ln[1:]}</span>'
+                elif ln.startswith("-") and not ln.startswith("---"):
+                    rendered += f'<span class="diff-del">- {ln[1:]}</span>'
+                else:
+                    rendered += f'<span class="diff-ctx">  {ln}</span>'
 
-        st.markdown('<hr class="fancy-divider">', unsafe_allow_html=True)
-
-        # ── GitHub token config notice ──────────────────────────
-        import os
-        _token_set = bool(os.getenv("GITHUB_TOKEN", ""))
-        _repo_set  = os.getenv("GITHUB_REPO", "harishrobin11/AutoHeal_ML_Pipelines")
-        if not _token_set:
             st.markdown(f"""
-            <div class="section-card" style="border-left:3px solid #fbbf24;padding:14px 18px;margin-bottom:18px;">
-                <div style="color:#fbbf24;font-weight:700;font-size:0.9rem;margin-bottom:6px">⚠️ GitHub Token Not Configured</div>
-                <div style="color:#94a3b8;font-size:0.85rem;line-height:1.7">
-                    Set <code>GITHUB_TOKEN</code> and <code>GITHUB_REPO</code> environment variables to create real Pull Requests.<br>
-                    <strong>Target repo:</strong> <code>{_repo_set}</code><br>
-                    Without a token the PR will be <strong>simulated</strong> and no real GitHub URL will be generated.
-                </div>
+            <div style="margin-bottom:8px;display:flex;align-items:center;gap:10px">
+                <div class="sec-title" style="font-size:0.9rem">🔀 Unified Git Diff</div>
+                <div class="badge b-emerald">+additions</div>
+                <div class="badge b-rose">-deletions</div>
+            </div>
+            <div class="diff-wrap">
+                <div class="diff-header">diff --git a/service.py b/service.py</div>
+                <div class="diff-body"><pre style="margin:0;white-space:pre-wrap">{rendered}</pre></div>
             </div>
             """, unsafe_allow_html=True)
 
-        if st.button("🐙  Create GitHub Pull Request", width="content"):
-            with st.spinner("Creating GitHub Pull Request..."):
-                pr_res = GitHubPRAutomator.create_pull_request(res)
-            st.session_state["last_pr"] = pr_res
+        st.markdown('<hr class="divider">', unsafe_allow_html=True)
+
+        # Token status notice
+        _token = bool(os.getenv("GITHUB_TOKEN", ""))
+        _repo  = os.getenv("GITHUB_REPO", "harishrobin11/AutoHeal_ML_Pipelines")
+        if not _token:
+            st.warning(f"⚠️  **GITHUB_TOKEN** not set — PRs will run in simulation mode. Set it in `.env` with `GITHUB_REPO={_repo}`.")
+
+        if st.button("🐙  Create GitHub Pull Request", use_container_width=False):
+            with st.spinner("Creating GitHub Pull Request via API…"):
+                pr = GitHubPRAutomator.create_pull_request(res)
+            st.session_state["last_pr"] = pr
 
         if "last_pr" in st.session_state:
-            pr_res = st.session_state["last_pr"]
-            mode   = pr_res.get("mode", "simulation")
+            pr   = st.session_state["last_pr"]
+            mode = pr.get("mode", "simulation")
 
-            if mode == "live" and pr_res.get("success"):
-                st.success("🎉 Real Pull Request Created on GitHub!")
-                col_a, col_b, col_c = st.columns(3)
-                with col_a:
-                    st.markdown(f'<div class="badge badge-success">✅ PR #{pr_res["pr_number"]}</div>', unsafe_allow_html=True)
-                    st.markdown(f'<a href="{pr_res["pr_url"]}" target="_blank" style="color:#38bdf8;font-size:0.85rem;font-weight:600;">{pr_res["pr_url"]}</a>', unsafe_allow_html=True)
-                with col_b:
-                    st.markdown(f'<div class="badge badge-info">🌿 Branch</div>&emsp;<code>{pr_res["branch_name"]}</code>', unsafe_allow_html=True)
-                with col_c:
-                    st.markdown(f'<div class="badge badge-violet">📋 Status</div>&emsp;<code>{pr_res["status"]}</code>', unsafe_allow_html=True)
-
-            elif mode == "error":
-                st.error(f"❌ PR creation failed: {pr_res.get('error', 'Unknown error')}")
+            if mode == "live" and pr.get("success"):
+                st.success(f"🎉 Pull Request **#{pr['pr_number']}** created successfully on GitHub!")
                 st.markdown(f"""
-                <div class="section-card" style="border-left:3px solid #f43f5e;padding:14px 18px;">
-                    <div style="color:#f43f5e;font-weight:700;font-size:0.9rem;margin-bottom:6px">🔧 Troubleshooting</div>
-                    <div style="color:#94a3b8;font-size:0.85rem;line-height:1.7">
-                        1. Make sure <code>GITHUB_TOKEN</code> has <strong>repo</strong> scope<br>
-                        2. Confirm <code>GITHUB_REPO</code> = <code>{_repo_set}</code> is correct<br>
-                        3. Ensure the token has write access to the repository
+                <div class="glass-card" style="border-color:rgba(16,185,129,0.3);margin-top:12px">
+                    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+                        <div><div style="font-size:0.7rem;color:#475569;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:4px">PR Link</div>
+                        <a href="{pr['pr_url']}" target="_blank" style="color:#00F0FF;font-family:'JetBrains Mono',monospace;font-size:0.85rem;font-weight:600;text-decoration:none">{pr['pr_url']}</a></div>
+                        <div><div style="font-size:0.7rem;color:#475569;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:4px">Branch</div>
+                        <code style="color:#C4B5FD;font-size:0.82rem">{pr['branch_name']}</code></div>
+                        <div><div style="font-size:0.7rem;color:#475569;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:4px">Status</div>
+                        <div class="badge b-emerald">{pr['status']}</div></div>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
-
-            else:  # simulation
-                st.info("🧪 **Simulation Mode** — No real PR created (token not set). Preview below:")
-                col_a, col_b = st.columns(2)
-                with col_a:
-                    st.markdown(f'<div class="badge badge-warning">⚠️ Simulated</div>&emsp;<code>{pr_res["pr_title"]}</code>', unsafe_allow_html=True)
-                with col_b:
-                    st.markdown(f'<div class="badge badge-info">🌿 Branch</div>&emsp;<code>{pr_res["branch_name"]}</code>', unsafe_allow_html=True)
+            elif mode == "error":
+                st.error(f"❌  PR creation failed: {pr.get('error','Unknown error')}")
+            else:
+                st.info("🧪  **Simulation Mode** — Set `GITHUB_TOKEN` in `.env` to create real PRs.")
+                st.markdown(f'<div class="badge b-amber">⚠️ Simulated</div>&emsp;<code style="color:#C4B5FD">{pr["branch_name"]}</code>', unsafe_allow_html=True)
 
             st.markdown("<br>", unsafe_allow_html=True)
-            with st.expander("📋 View Full Pull Request Description", expanded=True):
-                st.markdown(pr_res["pr_body"])
-
+            with st.expander("📋  View Full Pull Request Description", expanded=False):
+                st.markdown(pr["pr_body"])
     else:
-        st.markdown("""
-        <div class="section-card" style="text-align:center;padding:60px 20px;">
-            <div style="font-size:4rem;margin-bottom:16px">🔀</div>
-            <div style="color:#e2e8f0;font-size:1.2rem;font-weight:700;margin-bottom:8px">No Patch Available</div>
-            <div style="color:#475569">Trigger a <strong style="color:#a78bfa">Multi-Agent Remediation</strong> in Tab 3 to view generated patch diffs and create PRs.</div>
-        </div>
-        """, unsafe_allow_html=True)
+        EMPTY_STATE("🔀","No Patch Available","Trigger a <strong>Multi-Agent Remediation</strong> in Tab 3 first.")
