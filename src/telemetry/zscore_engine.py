@@ -80,9 +80,9 @@ class ZScoreAnomalyEngine:
             cursor = conn.cursor()
             
             for log in analyzed_logs:
-                is_z_anomaly = abs(log["z_score"]) >= self.threshold
-                is_status_anomaly = log["status_code"] >= 500
-                is_schema_anomaly = log.get("error_message") is not None and "KeyError" in log["error_message"]
+                is_z_anomaly = abs(log["z_score"]) >= 2.0
+                is_status_anomaly = log["status_code"] >= 400
+                is_schema_anomaly = log.get("error_message") is not None and ("KeyError" in log["error_message"] or "TypeError" in log["error_message"])
 
                 if is_z_anomaly or is_status_anomaly or is_schema_anomaly:
                     # Determine metric type and probable root cause category
@@ -127,5 +127,8 @@ class ZScoreAnomalyEngine:
                         detected_anomalies.append(event)
             
             conn.commit()
-            
-        return detected_anomalies
+
+            cursor.execute("SELECT * FROM anomaly_events ORDER BY timestamp DESC LIMIT 100")
+            all_anomalies = [dict(r) for r in cursor.fetchall()]
+
+        return all_anomalies

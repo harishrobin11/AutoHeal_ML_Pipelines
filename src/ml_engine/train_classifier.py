@@ -35,7 +35,7 @@ class RootCauseClassifier:
                 n_estimators=100,
                 max_depth=5,
                 learning_rate=0.1,
-                eval_metric="mlgloss"
+                eval_metric="mlogloss"
             )
         else:
             self.model = RandomForestClassifier(n_estimators=50, random_state=42)
@@ -87,6 +87,7 @@ class RootCauseClassifier:
     def train(self, logs: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Trains XGBoost/RandomForest model on provided telemetry data logs."""
         X, y_raw = self.extract_features(logs)
+        self.label_encoder.fit(y_raw)
         y = self.label_encoder.transform(y_raw)
         
         self.model.fit(X, y)

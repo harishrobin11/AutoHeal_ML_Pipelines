@@ -134,7 +134,7 @@ with tab2:
     
     if anomalies:
         st.success(f"Detected {len(anomalies)} telemetry anomaly events requiring diagnosis.")
-        selected_idx = st.selectbox("Select Anomaly Event to Diagnose", range(len(anomalies)), format_func=lambda i: f"[{anomalies[i]['root_cause_category']}] {anomalies[i]['service_name']} - {anomalies[i]['endpoint']} (Z={anomalies[i]['z_score']})")
+        selected_idx = st.selectbox("Select Anomaly Event to Diagnose", range(len(anomalies)), format_func=lambda i: f"[{anomalies[i]['root_cause_category']}] {anomalies[i]['service_name']} - {anomalies[i]['endpoint']} (Z={anomalies[i]['z_score']})", key="tab2_selectbox")
         
         target_anomaly = anomalies[selected_idx]
         
@@ -170,7 +170,8 @@ with tab3:
     
     anomalies = zscore_engine.detect_and_flag_anomalies()
     if anomalies:
-        anomaly_to_fix = st.selectbox("Target Anomaly Event for Auto-Healing", anomalies, format_func=lambda a: f"ID: {a['id'][:8]} | {a['service_name']} | {a['root_cause_category']}")
+        selected_anomaly_idx = st.selectbox("Target Anomaly Event for Auto-Healing", range(len(anomalies)), format_func=lambda i: f"ID: {anomalies[i]['id'][:8]} | {anomalies[i]['service_name']} | {anomalies[i]['root_cause_category']}", key="tab3_selectbox")
+        anomaly_to_fix = anomalies[selected_anomaly_idx]
         
         if st.button("🤖 Trigger Multi-Agent Remediation"):
             with st.spinner("Multi-Agent System Orchestrating Remediation..."):
@@ -178,6 +179,8 @@ with tab3:
                 st.session_state["last_remediation"] = remediation_res
                 
             st.success("Remediation Workflow Complete!")
+    else:
+        st.info("No anomaly events detected for remediation yet. Click 'Ingest Telemetry Stream' in the sidebar!")
             
     if "last_remediation" in st.session_state:
         res = st.session_state["last_remediation"]
