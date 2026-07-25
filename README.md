@@ -33,33 +33,68 @@
 
 ## 🏗️ Architecture
 
+```mermaid
+graph TD
+    subgraph Telemetry ["📡 Telemetry Stream"]
+        A["Synthetic Log Generator"] --> B["SQLite Ingestor & Rolling Z-Score Engine"]
+    end
+
+    subgraph ML ["🧬 ML Diagnostics Layer"]
+        B --> C["XGBoost Classifier"]
+        C --> D["Failure Classification<br/>(SchemaBreak / LatencySpike)"]
+        C --> E["SHAP Explainer<br/>(Feature Attribution)"]
+        C --> F["Drift Monitor<br/>(Distribution Shift)"]
+    end
+
+    subgraph Agents ["🤖 LangGraph Multi-Agent Remediation"]
+        D --> G["🔍 Investigator Agent<br/>(Root-Cause Localization)"]
+        G --> H["🛠️ Developer Agent<br/>(Backward-Compatible Patch)"]
+        H --> I["✅ Validator Agent<br/>(AST + Unit Test Sandbox)"]
+    end
+
+    subgraph Deploy ["🐙 GitHub PR Automator & Interface"]
+        I --> J["Git Branch & Real PR Creation"]
+        J --> K["Streamlit Dashboard & FastAPI Backend"]
+    end
+
+    style Telemetry fill:#0d1117,stroke:#30363d,color:#c9d1d9
+    style ML fill:#0d1117,stroke:#30363d,color:#c9d1d9
+    style Agents fill:#0d1117,stroke:#30363d,color:#c9d1d9
+    style Deploy fill:#0d1117,stroke:#30363d,color:#c9d1d9
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                     AutoHeal-ML Platform                         │
-│                                                                  │
-│  📡 Telemetry Stream                                             │
-│     └─ Synthetic log generator (HTTP metrics, error codes)      │
-│     └─ SQLite ingestor with rolling Z-score engine              │
-│                          │                                       │
-│                          ▼                                       │
-│  🧬 ML Diagnostics Layer                                         │
-│     └─ XGBoost Classifier  →  SchemaBreak / LatencySpike / ...  │
-│     └─ SHAP Explainer      →  Feature attribution per event      │
-│     └─ Drift Monitor       →  Distribution shift detection       │
-│                          │                                       │
-│                          ▼                                       │
-│  🤖 LangGraph Multi-Agent Remediation                            │
-│     └─ 🔍 Investigator Agent  → Root-cause localization          │
-│     └─ 🛠️  Developer Agent    → Backward-compatible patch         │
-│     └─ ✅ Validator Agent     → AST + unit test sandbox          │
-│                          │                                       │
-│                          ▼                                       │
-│  🐙 GitHub PR Automator                                          │
-│     └─ Creates branch → commits patch → opens real PR           │
-│                                                                  │
-│  🖥️  Streamlit Dashboard  ·  🚀 FastAPI Backend  ·  🐳 Docker   │
-└──────────────────────────────────────────────────────────────────┘
+
+<details>
+<summary><b>View Text Architecture Diagram</b></summary>
+
+```text
+====================================================================
+                     AutoHeal-ML Platform
+====================================================================
+
+  📡 Telemetry Stream
+     └─ Synthetic log generator (HTTP metrics, error codes)
+     └─ SQLite ingestor with rolling Z-score engine
+                          │
+                          ▼
+  🧬 ML Diagnostics Layer
+     └─ XGBoost Classifier  →  SchemaBreak / LatencySpike / ...
+     └─ SHAP Explainer      →  Feature attribution per event
+     └─ Drift Monitor       →  Distribution shift detection
+                          │
+                          ▼
+  🤖 LangGraph Multi-Agent Remediation
+     └─ 🔍 Investigator Agent  →  Root-cause localization
+     └─ 🛠️ Developer Agent     →  Backward-compatible patch
+     └─ ✅ Validator Agent    →  AST + unit test sandbox
+                          │
+                          ▼
+  🐙 GitHub PR Automator
+     └─ Creates branch  →  commits patch  →  opens real PR
+
+  🖥️ Streamlit Dashboard   ·   🚀 FastAPI Backend   ·   🐳 Docker
+====================================================================
 ```
+</details>
 
 ---
 
